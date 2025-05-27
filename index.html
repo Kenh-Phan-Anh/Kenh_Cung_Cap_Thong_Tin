@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<title> Kênh Cung Cấp Thông Tin </title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; background: #f9f9f9; }
+  header { background: #2c3e50; color: white; padding: 15px; text-align: center; }
+  .navbar {
+    background: #34495e;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .navbar button {
+    background: white;
+    border: none;
+    margin: 5px;
+    padding: 10px 15px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-weight: bold;
+  }
+  .form, #list, #adminPanel, #loginSection, #registerSection {
+    padding: 15px;
+    max-width: 600px;
+    margin: 15px auto;
+    background: white;
+    border-radius: 5px;
+    box-shadow: 0 0 8px #ccc;
+  }
+  textarea, input, select {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    resize: vertical;
+    font-size: 14px;
+  }
+  .item {
+    background: white;
+    padding: 10px;
+    margin: 10px 0;
+    border-left: 4px solid #2980b9;
+    box-shadow: 0 1px 3px #ddd;
+    border-radius: 4px;
+    word-wrap: break-word;
+    position: relative;
+  }
+  .item img {
+    max-width: 100%;
+    margin-top: 5px;
+    border-radius: 4px;
+  }
+  footer {
+    text-align: center;
+    background: #ddd;
+    padding: 12px;
+    font-size: 13px;
+    color: #555;
+    margin-top: 30px;
+    user-select: none;
+  }
+  .hidden { display: none; }
+  label { font-weight: bold; }
+  .error { color: red; font-size: 13px; margin-top: -8px; }
+  .admin-textarea {
+    width: 100%;
+    min-height: 60px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    padding: 6px;
+    font-size: 13px;
+    border: 1px solid #2980b9;
+    border-radius: 4px;
+    resize: vertical;
+  }
+  .delete-button {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    margin-top: 5px;
+    border-radius: 3px;
+    cursor: pointer;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+  }
+  .delete-button:hover {
+    background: #c0392b;
+  }
+  .reply-section {
+    margin-top: 10px;
+  }
+  .reply-text {
+    font-style: italic;
+    color: #2c3e50;
+    background: #ecf0f1;
+    padding: 6px;
+    border-radius: 4px;
+  }
+  #logoutBtn {
+    display: none;
+    background: #2980b9;
+    color: white;
+    border: none;
+    padding: 7px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+</style>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
+</head>
+<body>
+
+<header>
+  <h1>Kênh Cung Cấp Thông Tin</h1>
+</header>
+
+<div class="navbar">
+  <button onclick="showSection('formSection')">Gửi Phản Ánh</button>
+  <button onclick="showSection('list')">Xem Phản Ánh Công Khai</button>
+  <button onclick="showAdminPanel()">Quản Lý Phản Ánh</button>
+  <button onclick="showSection('loginSection')">Đăng Nhập</button>
+  <button onclick="showSection('registerSection')">Đăng Ký</button>
+  <button id="logoutBtn" onclick="logout()">Đăng Xuất</button>
+</div>
+
+<!-- Form gửi phản ánh -->
+<section id="formSection" class="form hidden">
+  <h3>Gửi Phản Ánh Mới</h3>
+  <label for="category">Lĩnh vực:</label>
+  <select id="category">
+    <option>Chọn lĩnh vực</option>
+    <option>Giao thông</option>
+    <option>Môi trường</option>
+    <option>Hạ tầng</option>
+    <option>Khác</option>
+  </select>
+
+  <label for="message">Nội dung phản ánh:</label>
+  <textarea id="message" rows="4" placeholder="Nhập nội dung phản ánh..."></textarea>
+
+  <label for="imageInput">Ảnh (tùy chọn):</label>
+  <input type="file" id="imageInput" accept="image/*" />
+
+  <label for="isPublic">Chế độ hiển thị:</label>
+  <select id="isPublic">
+    <option value="true">Công khai</option>
+    <option value="false">Riêng tư</option>
+  </select>
+
+  <button onclick="submitReport()">Gửi phản ánh</button>
+</section>
+
+<!-- Danh sách phản ánh công khai -->
+<section id="list" class="hidden">
+  <h3>Danh Sách Phản Ánh Công Khai</h3>
+  <div id="publicReports"></div>
+</section>
+
+<!-- Admin panel -->
+<section id="adminPanel" class="hidden">
+  <h3>Quản Lý Phản Ánh</h3>
+  <div id="adminReports"></div>
+</section>
+
+<!-- Đăng nhập -->
+<section id="loginSection" class="hidden">
+  <h3>Đăng Nhập</h3>
+  <label for="loginUsername">Tên đăng nhập:</label>
+  <input id="loginUsername" type="text" />
+  <label for="loginPassword">Mật khẩu:</label>
+  <input id="loginPassword" type="password" />
+  <div class="error" id="loginError"></div>
+  <button onclick="login()">Đăng nhập</button>
+</section>
+
+<!-- Đăng ký -->
+<section id="registerSection" class="hidden">
+  <h3>Đăng Ký Tài Khoản</h3>
+  <label for="registerUsername">Tên đăng nhập:</label>
+  <input id="registerUsername" type="text" />
+  <label for="registerPassword">Mật khẩu:</label>
+  <input id="registerPassword" type="password" />
+  <label for="registerPasswordConfirm">Xác nhận mật khẩu:</label>
+  <input id="registerPasswordConfirm" type="password" />
+  <div class="error" id="registerError"></div>
+  <button onclick="register()">Đăng ký</button>
+</section>
+
+<footer>
+  <p>© Thuộc Thông Tin Long An | Phiên bản 5.6</p>
+</footer>
+
+<script>
+  // Firebase config
+  const firebaseConfig = {
+    databaseURL: "https://phan-anh-can-dioc-default-rtdb.firebaseio.com/"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  let currentUser = null;
+
+  function showSection(id) {
+    ['formSection', 'list', 'adminPanel', 'loginSection', 'registerSection'].forEach(s => {
+      document.getElementById(s).classList.add('hidden');
+    });
+    if(id === 'list') {
+      fetchPublicReports();
+    }
+    document.getElementById(id).classList.remove('hidden');
+  }
+
+  // Load public reports for viewing
+  function fetchPublicReports() {
+    const container = document.getElementById('publicReports');
+    container.innerHTML = '';
+    db.ref("reports").orderByChild('timestamp').once("value", snapshot => {
+      if(!snapshot.exists()) {
+        container.innerHTML = "<p>Chưa có phản ánh nào.</p>";
+        return;
+      }
+      snapshot.forEach(child => {
+        const r = child.val();
+        if(r.isPublic) {
+          const div = document.createElement("div");
+          div.className = "item";
+          div.innerHTML = `
+            <b>Lĩnh vực:</b> ${r.category}<br>
+            <b>Nội dung:</b> ${r.message}<br>
+            ${r.imageUrl ? `<img src="${r.imageUrl}" alt="Ảnh phản ánh" />` : ''}
+            ${r.reply ? `<div class="reply-section"><b>Trả lời:</b> <span class="reply-text">${r.reply}</span></div>` : ''}
+            <br><small><i>Người gửi: ${r.user}</i></small>
+          `;
+          container.appendChild(div);
+        }
+      });
+    });
+  }
+
+  // Đăng ký tài khoản (lưu localStorage)
+  function register() {
+    const username = document.getElementById('registerUsername').value.trim();
+    const password = document.getElementById('registerPassword').value;
+    const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+    const error = document.getElementById('registerError');
+    error.textContent = "";
+
+    if(!username || !password) {
+      error.textContent = "Vui lòng nhập đủ thông tin.";
+      return;
+    }
+    if(password !== passwordConfirm) {
+      error.textContent = "Mật khẩu không khớp.";
+      return;
+    }
+    let users = JSON.parse(localStorage.getItem('users') || '{}');
+    if(users[username]) {
+      error.textContent = "Tên đăng nhập đã tồn tại.";
+      return;
+    }
+    users[username] = { password };
+    localStorage.setItem('users', JSON.stringify(users));
+    alert("Đăng ký thành công. Vui lòng đăng nhập.");
+    showSection('loginSection');
+  }
+
+  // Đăng nhập user
+  function login() {
+    const username = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const error = document.getElementById('loginError');
+    error.textContent = "";
+    if(!username || !password) {
+      error.textContent = "Vui lòng nhập đầy đủ.";
+      return;
+    }
+    let users = JSON.parse(localStorage.getItem('users') || '{}');
+    if(!users[username] || users[username].password !== password) {
+      error.textContent = "Tên đăng nhập hoặc mật khẩu sai.";
+      return;
+    }
+    currentUser = { username };
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    alert("Đăng nhập thành công!");
+    updateUIAfterLogin();
+    showSection('formSection');
+  }
+
+  // Cập nhật UI khi đăng nhập
+  function updateUIAfterLogin() {
+    document.getElementById('logoutBtn').style.display = "inline-block";
+  }
+
+  // Đăng xuất
+  function logout() {
+    currentUser = null;
+    localStorage.removeItem('currentUser');
+    alert("Đã đăng xuất.");
+    document.getElementById('logoutBtn').style.display = "none";
+    showSection('loginSection');
+  }
+
+  // Gửi phản ánh
+  function submitReport() {
+    if(!currentUser) {
+      alert('Bạn cần đăng nhập để gửi phản ánh!');
+      showSection('loginSection');
+      return;
+    }
+    const message = document.getElementById('message').value.trim();
+    const category = document.getElementById('category').value;
+    const isPublic = document.getElementById('isPublic').value === "true";
+
+    if(!message || category === "Chọn lĩnh vực") {
+      alert("Vui lòng điền nội dung và chọn lĩnh vực.");
+      return;
+    }
+    const imageInput = document.getElementById('imageInput');
+    const file = imageInput.files[0];
+
+    const report = {
+      message,
+      category,
+      isPublic,
+      reply: "",
+      imageUrl: "",
+      user: currentUser.username,
+      timestamp: Date.now()
+    };
+
+    if(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        report.imageUrl = e.target.result;
+        db.ref("reports").push(report)
+          .then(() => {
+            alert("Đã gửi phản ánh!");
+            resetForm();
+            fetchPublicReports();
+            showSection('list');
+          })
+          .catch(e => alert("Lỗi gửi phản ánh: " + e.message));
+      };
+      reader.onerror = function() {
+        alert("Lỗi đọc ảnh, vui lòng thử lại.");
+      };
+      reader.readAsDataURL(file);
+    } else {
+      db.ref("reports").push(report)
+        .then(() => {
+          alert("Đã gửi phản ánh!");
+          resetForm();
+          fetchPublicReports();
+          showSection('list');
+        })
+        .catch(e => alert("Lỗi gửi phản ánh: " + e.message));
+    }
+  }
+
+  // Reset form gửi phản ánh
+  function resetForm() {
+    document.getElementById('message').value = '';
+    document.getElementById('imageInput').value = '';
+    document.getElementById('category').selectedIndex = 0;
+    document.getElementById('isPublic').selectedIndex = 0;
+  }
+
+  // Phần quản lý admin: hiển thị báo cáo, trả lời, xóa
+  function showAdminPanel() {
+    const pw = prompt("Nhập mật khẩu quản trị:");
+    if(pw === "261209") {
+      showSection('adminPanel');
+      loadAdminReports();
+    } else {
+      alert("Mật khẩu sai, bạn không có quyền truy cập quản trị.");
+    }
+  }
+
+  // Load báo cáo admin để quản lý
+  function loadAdminReports() {
+    const container = document.getElementById('adminReports');
+    container.innerHTML = '';
+    db.ref("reports").orderByChild('timestamp').once("value", snapshot => {
+      if(!snapshot.exists()) {
+        container.innerHTML = "<p>Chưa có phản ánh nào.</p>";
+        return;
+      }
+      snapshot.forEach(child => {
+        const key = child.key;
+        const r = child.val();
+
+        const div = document.createElement("div");
+        div.className = "item";
+        div.innerHTML = `
+          <b>Lĩnh vực:</b> ${r.category}<br>
+          <b>Nội dung:</b> ${r.message}<br>
+          ${r.imageUrl ? `<img src="${r.imageUrl}" alt="Ảnh phản ánh" />` : ''}
+          <br><small><i>Người gửi: ${r.user}</i></small><br>
+          <label>Phản hồi:</label><br>
+          <textarea class="admin-textarea" id="reply-${key}">${r.reply || ''}</textarea><br>
+          <button onclick="saveReply('${key}')">Lưu phản hồi</button>
+          <button class="delete-button" onclick="deleteReport('${key}')">Xóa</button>
+        `;
+        container.appendChild(div);
+      });
+    });
+  }
+
+  // Lưu phản hồi admin
+  function saveReply(key) {
+    const replyText = document.getElementById('reply-' + key).value.trim();
+    db.ref("reports/" + key).update({ reply: replyText })
+      .then(() => alert("Đã lưu phản hồi!"))
+      .catch(e => alert("Lỗi lưu phản hồi: " + e.message));
+  }
+
+  // Xóa phản ánh admin
+  function deleteReport(key) {
+    if(confirm("Bạn chắc chắn muốn xóa phản ánh này?")) {
+      db.ref("reports/" + key).remove()
+        .then(() => {
+          alert("Đã xóa phản ánh.");
+          loadAdminReports();
+        })
+        .catch(e => alert("Lỗi xóa: " + e.message));
+    }
+  }
+
+  // Tự động check trạng thái đăng nhập khi load trang
+  window.onload = function() {
+    const savedUser = localStorage.getItem('currentUser');
+    if(savedUser) {
+      currentUser = JSON.parse(savedUser);
+      updateUIAfterLogin();
+      showSection('formSection');
+    } else {
+      showSection('loginSection');
+    }
+  }
+</script>
+
+</body>
+</html>
