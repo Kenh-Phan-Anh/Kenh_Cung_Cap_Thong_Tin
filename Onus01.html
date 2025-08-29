@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Onus — Full Client Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f8fa; --card:#fff; --accent:#0ea5a4; --muted:#64748b; --text:#071019;
+  }
+  [data-theme="dark"]{
+    --bg:#0b1220; --card:#0f1724; --accent:#06b6d4; --muted:#9aa6b2; --text:#e6eef6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
+  .header{background:var(--card);padding:12px 16px;box-shadow:0 1px 6px rgba(2,6,23,.06);position:sticky;top:0;z-index:40;display:flex;justify-content:space-between;align-items:center}
+  .brand{font-weight:700;color:var(--accent);font-size:18px}
+  .container{max-width:1180px;margin:18px auto;padding:0 12px}
+  .row{display:flex;gap:12px;align-items:center}
+  .btn{background:var(--accent);color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+  .btn.gray{background:transparent;color:var(--text);border:1px solid rgba(0,0,0,.06)}
+  .card{background:var(--card);padding:12px;border-radius:10px;box-shadow:0 8px 24px rgba(2,6,23,.04);margin-bottom:12px}
+  .small{font-size:13px;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+  @media (max-width:900px){ .grid{grid-template-columns:1fr} .header{flex-wrap:wrap;gap:8px} }
+  .input{width:100%;padding:8px;border-radius:8px;border:1px solid #e8eef6;background:transparent;color:var(--text)}
+  .table{width:100%;border-collapse:collapse}
+  .table th,.table td{padding:8px;border-bottom:1px solid rgba(0,0,0,.06);text-align:left}
+  ul {margin:0;padding-left:16px}
+  a{color:var(--accent)}
+  .footer{text-align:center;color:var(--muted);margin:18px 0}
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.45);z-index:90}
+  .modal .box{width:520px;max-width:95%;background:var(--card);padding:14px;border-radius:10px}
+  .flex {display:flex;gap:8px}
+  .chip{padding:6px 8px;border-radius:999px;background:rgba(0,0,0,.04)}
+  .notice{padding:8px;border-radius:8px;background:linear-gradient(90deg, rgba(255,255,255,.03), rgba(0,0,0,.02));margin-bottom:8px}
+</style>
+</head>
+<body data-theme="light">
+  <header class="header">
+    <div class="row">
+      <div class="brand">Onus</div>
+      <div class="small">Sàn Demo — Client-only</div>
+    </div>
+
+    <div class="row">
+      <div id="tickerMini" class="small">—</div>
+      <button class="btn gray" onclick="toggleTheme()">🌙</button>
+      <button id="btnAuth" class="btn" onclick="openAuth()">Đăng nhập</button>
+      <button class="btn gray" onclick="openAdmin()">Admin</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="grid">
+      <!-- LEFT: Dashboard -->
+      <section>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <h2 style="margin:0">Dashboard</h2>
+              <div class="small">Cập nhật: <span id="lastUpdate">--:--:--</span></div>
+            </div>
+            <div style="text-align:right">
+              <div class="small">Giá trị danh mục</div>
+              <div id="portfolioVal" style="font-weight:700">$0.00</div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px" class="flex">
+            <select id="symbolSelect" class="input" style="width:160px"></select>
+            <select id="intervalSelect" class="input" style="width:120px">
+              <option value="1h">1h</option><option value="4h">4h</option><option value="1d">1d</option>
+            </select>
+            <button class="btn" onclick="refreshSymbol()">Cập nhật</button>
+            <button class="btn" onclick="setSymbol(document.getElementById('symbolSelect').value)">Xem</button>
+            <button class="btn gray" onclick="exportCSV()">Xuất CSV</button>
+          </div>
+
+          <div id="chartWrap" style="margin-top:12px;height:420px;border-radius:8px;background:var(--card);overflow:hidden">
+            <div id="chart" style="width:100%;height:100%"></div>
+          </div>
+
+          <div style="margin-top:12px;display:flex;gap:12px;align-items:center">
+            <div style="flex:1">
+              <div class="small">Giá hiện tại</div>
+              <div id="currentPrice" style="font-weight:700;font-size:20px">—</div>
+            </div>
+            <div style="width:560px">
+              <div class="small">Đặt lệnh (Market / Limit)</div>
+              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+                <select id="orderSide" class="input" style="width:100px"><option value="buy">Mua</option><option value="sell">Bán</option></select>
+                <input id="orderSymbol" class="input" placeholder="Mã (VD: BTC)" value="BTC" style="width:100px" />
+                <input id="orderQty" class="input" placeholder="Số lượng" style="width:120px" />
+                <input id="orderPrice" class="input" placeholder="Giá (để trống = market)" style="width:140px" />
+                <button class="btn" onclick="placeOrder()">Gửi</button>
+              </div>
+              <div class="small" style="margin-top:8px">Gõ giá để đặt <strong>limit order</strong>, để trống là <strong>market</strong>.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- News + Search + Bookmarks -->
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h3 style="margin:0">Tin tức</h3>
+            <div class="small">
+              <input id="newsSearch" class="input" placeholder="Tìm kiếm tin (Bitcoin, Onus...)" style="width:260px" />
+            </div>
+          </div>
+
+          <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+            <button class="btn" onclick="fetchNews()">Tải lại</button>
+            <button class="btn gray" onclick="toggleLanguage()">Ngôn ngữ</button>
+            <div id="newsStatus" class="small" style="margin-left:8px">Đang tải...</div>
+          </div>
+
+          <div id="newsControls" style="margin-top:10px" class="small">
+            <span class="chip">Nguồn: NewsAPI (primary)</span>
+            <span class="chip">Fallback: CoinGecko</span>
+            <span class="chip" id="newsLangChip">EN</span>
+          </div>
+
+          <div id="newsList" style="margin-top:12px"></div>
+        </div>
+
+      </section>
+
+      <!-- RIGHT: Sidebar -->
+      <aside>
+        <div class="card">
+          <h4 style="margin:0">Wallet (demo)</h4>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <div style="flex:1"><div class="small">USD</div><div id="balUSD" style="font-weight:700">$10000.00</div></div>
+            <div style="flex:1"><div class="small">BTC</div><div id="balBTC" style="font-weight:700">0.000000</div></div>
+            <div style="flex:1"><div class="small">ETH</div><div id="balETH" style="font-weight:700">0.000000</div></div>
+          </div>
+
+          <div style="margin-top:12px">
+            <div class="small">Top coins</div>
+            <div id="topCoins" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+            <div style="margin-top:10px" class="small">Watchlist</div>
+            <ul id="watchlist" style="margin-top:8px;padding-left:0"></ul>
+            <div style="display:flex;gap:8px;margin-top:8px"><input id="addSymbol" class="input" placeholder="VD: BTC" /><button class="btn" onclick="addWatch()">Thêm</button></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h4 style="margin:0">Alerts</h4>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <select id="alertSym" class="input" style="width:120px"></select>
+            <input id="alertPrice" class="input" placeholder="Giá USD" />
+            <button class="btn" onclick="addAlert()">Thêm</button>
+          </div>
+          <div id="alertsArea" class="small" style="margin-top:8px">Không có cảnh báo</div>
+        </div>
+
+        <div class="card">
+          <h4 style="margin:0">Lịch sử lệnh</h4>
+          <div style="max-height:220px;overflow:auto;margin-top:8px">
+            <table class="table" id="ordersTable"><thead><tr><th>Thời gian</th><th>Loại</th><th>Mã</th><th>Số lượng</th><th>Giá</th><th>Trạng thái</th></tr></thead><tbody></tbody></table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h4 style="margin:0">KYC & Ngân hàng</h4>
+          <div id="profileArea" style="margin-top:8px"></div>
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button class="btn" onclick="openKyc()">KYC</button>
+            <button class="btn gray" onclick="bankLink()">Liên kết NH</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h4 style="margin:0">Liên hệ / Feedback</h4>
+          <div style="margin-top:8px">
+            <input id="contactName" class="input" placeholder="Tên" />
+            <input id="contactEmail" class="input" placeholder="Email" style="margin-top:8px"/>
+            <textarea id="contactMsg" class="input" placeholder="Nội dung" style="margin-top:8px;height:80px"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" onclick="sendContact()">Gửi</button><button class="btn gray" onclick="viewContacts()">Xem messages</button></div>
+          </div>
+        </div>
+
+      </aside>
+    </div>
+
+    <div class="footer">© Onus — Client-only prototype. Không dùng giao dịch thật.</div>
+  </main>
+
+  <!-- Modal -->
+  <div id="modal" class="modal"><div class="box card" id="modalBox"></div></div>
+
+  <!-- Lightweight charts -->
+  <script src="https://unpkg.com/lightweight-charts@4.0.0/dist/lightweight-charts.standalone.production.js"></script>
+
+<script>
+/* =========================
+   Onus Full Client Demo JS
+   - All data stored in localStorage
+   ========================= */
+
+/* ---- Config ---- */
+const LS = 'onus_full_demo_v1';
+const NEWS_API_KEY = '7dda2c109d924030b11be45c5b1a'; // your provided key
+const TOP_COINS = ['BTC','ETH','BNB','XRP','ADA','SOL','DOT','DOGE','LTC','LINK','MATIC','TRX'];
+
+/* ---- State ---- */
+let state = {
+  users: {},       // username -> {salt,hash,profile,balances}
+  current: null,   // username
+  watch: ['BTC','ETH'],
+  tickers: {},     // symbol -> {price,change}
+  orders: [],      // orders list
+  alerts: [],      // alerts list
+  lastPrices: {},  // last known price
+  adminPosts: [],  // admin-created news posts
+  contacts: []     // contact messages
+};
+// load
+try{ const s = JSON.parse(localStorage.getItem(LS)); if(s) state = s; }catch(e){console.warn('load state error',e)}
+
+/* ---- Helpers ---- */
+function save(){ localStorage.setItem(LS, JSON.stringify(state)); renderAll(); }
+function now(){ return new Date().toLocaleString(); }
+function uid(prefix='id'){ return prefix + '_' + Date.now() + '_' + Math.floor(Math.random()*9000); }
+function fmtUSD(n){ return isFinite(n) ? '$' + Number(n).toLocaleString('en-US',{maximumFractionDigits:2}) : '$0.00'; }
+
+/* ---- PBKDF2 (client auth hashing) ---- */
+function bufToHex(buf){ return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+function hexToBuf(hex){ return new Uint8Array(hex.match(/.{1,2}/g).map(h=>parseInt(h,16))).buffer; }
+function randHex(bytes=16){ const b=new Uint8Array(bytes); crypto.getRandomValues(b); return bufToHex(b); }
+async function pbkdf2(pass,saltHex){
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(pass), {name:'PBKDF2'}, false, ['deriveBits']);
+  const salt = hexToBuf(saltHex);
+  const bits = await crypto.subtle.deriveBits({name:'PBKDF2', hash:'SHA-256', salt, iterations:120000}, key, 256);
+  return bufToHex(bits);
+}
+
+/* ---- Chart ---- */
+const chart = LightweightCharts.createChart(document.getElementById('chart'), { width: document.getElementById('chart').clientWidth, height: 420, layout:{backgroundColor: getComputedStyle(document.body).getPropertyValue('--card')||'#fff', textColor: getComputedStyle(document.body).getPropertyValue('--text')||'#222'} });
+const candleSeries = chart.addCandlestickSeries({ upColor:'#26a69a', downColor:'#ef5350', borderUpColor:'#26a69a', borderDownColor:'#ef5350', wickUpColor:'#26a69a', wickDownColor:'#ef5350' });
+window.addEventListener('resize', ()=> chart.applyOptions({ width: document.getElementById('chart').clientWidth }));
+
+/* ---- Fetch price tickers (Binance 24hr) ---- */
+async function fetch24hrTickers(){
+  try{
+    const res = await fetch('https://api.binance.com/api/v3/ticker/24hr');
+    const arr = await res.json();
+    const needed = new Set([...TOP_COINS, ...state.watch]);
+    arr.forEach(item=>{
+      if(!item.symbol.endsWith('USDT')) return;
+      const sym = item.symbol.replace('USDT','');
+      if(needed.has(sym)){
+        state.tickers[sym] = { price: parseFloat(item.lastPrice), change: parseFloat(item.priceChangePercent) };
+        state.lastPrices[sym] = parseFloat(item.lastPrice);
+      }
+    });
+  }catch(e){
+    console.warn('fetch24hrTickers failed', e);
+  }
+}
+
+/* ---- Fetch klines from Binance ---- */
+async function fetchKlines(symbol, interval='1h', limit=300){
+  const pair = symbol.endsWith('USDT') ? symbol : symbol + 'USDT';
+  try{
+    const url = `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${interval}&limit=${limit}`;
+    const res = await fetch(url);
+    const raw = await res.json();
+    if(!Array.isArray(raw)) throw new Error('No klines');
+    return raw.map(r=>({ time: Math.floor(r[0]/1000), open:+r[1], high:+r[2], low:+r[3], close:+r[4] }));
+  }catch(e){
+    console.warn('fetchKlines failed', e);
+    return [];
+  }
+}
+
+/* ---- Set symbol (chart) ---- */
+async function setSymbol(sym){
+  if(!sym) return;
+  document.getElementById('symbolSelect').value = sym;
+  document.getElementById('orderSymbol').value = sym;
+  document.getElementById('currentPrice').innerText = 'Đang tải...';
+  const interval = document.getElementById('intervalSelect').value || '1h';
+  try{
+    const klines = await fetchKlines(sym, interval, 300);
+    if(klines && klines.length){
+      candleSeries.setData(klines);
+      const last = klines[klines.length-1].close;
+      state.lastPrices[sym] = last;
+      state.tickers[sym] = state.tickers[sym] || {};
+      state.tickers[sym].price = last;
+      document.getElementById('currentPrice').innerText = fmtUSD(last);
+      save();
+    } else {
+      document.getElementById('currentPrice').innerText = 'Không có dữ liệu nến';
+    }
+  }catch(e){
+    console.error('setSymbol error', e);
+    document.getElementById('currentPrice').innerText = 'Lỗi tải dữ liệu';
+  }
+}
+
+/* ---- Orders: market + limit ---- */
+function placeOrder(){
+  const side = document.getElementById('orderSide').value;
+  const sym = document.getElementById('orderSymbol').value.trim().toUpperCase();
+  const qty = Number(document.getElementById('orderQty').value);
+  const priceInput = document.getElementById('orderPrice').value.trim();
+  if(!sym || !qty || qty <= 0) return alert('Nhập hợp lệ');
+  if(!state.current) return alert('Vui lòng đăng nhập');
+  const owner = state.current;
+  const id = uid('o');
+  if(priceInput === ''){
+    // market fill immediately
+    const last = state.lastPrices[sym];
+    if(!last) return alert('Giá chưa sẵn sàng');
+    const user = state.users[owner];
+    if(side === 'buy'){
+      const cost = last * qty;
+      if(user.balances.USD < cost) return alert('Không đủ USD');
+      user.balances.USD -= cost;
+      user.balances[sym] = (user.balances[sym]||0) + qty;
+    } else {
+      if((user.balances[sym]||0) < qty) return alert('Không đủ ' + sym);
+      user.balances[sym] -= qty;
+      user.balances.USD += last * qty;
+    }
+    state.orders.push({ id, owner, side, symbol: sym, qty, price: last, type:'market', status:'filled', time: now(), filledAt: now() });
+    save(); alert('Lệnh market đã khớp (demo)');
+  } else {
+    const price = Number(priceInput);
+    state.orders.push({ id, owner, side, symbol: sym, qty, price, type:'limit', status:'open', time: now() });
+    save(); alert('Limit order được tạo (sẽ khớp khi giá đạt)');
+  }
+}
+
+/* Process open limit orders */
+function processOpenOrders(){
+  const opens = state.orders.filter(o=>o.type==='limit' && o.status==='open');
+  opens.forEach(ord=>{
+    const last = state.lastPrices[ord.symbol];
+    if(!last) return;
+    const user = state.users[ord.owner];
+    if(!user) return;
+    if(ord.side==='buy' && last <= ord.price){
+      const cost = ord.price * ord.qty;
+      if(user.balances.USD >= cost){
+        user.balances.USD -= cost;
+        user.balances[ord.symbol] = (user.balances[ord.symbol]||0) + ord.qty;
+        ord.status = 'filled'; ord.filledAt = now();
+      }
+    } else if(ord.side==='sell' && last >= ord.price){
+      if((user.balances[ord.symbol]||0) >= ord.qty){
+        user.balances[ord.symbol] -= ord.qty;
+        user.balances.USD += ord.price * ord.qty;
+        ord.status = 'filled'; ord.filledAt = now();
+      }
+    }
+  });
+  save();
+}
+
+/* Cancel order */
+function cancelOrder(id){
+  const o = state.orders.find(x=>x.id===id);
+  if(!o) return alert('Không tìm thấy lệnh');
+  if(o.owner !== state.current) return alert('Bạn chỉ có thể huỷ lệnh của chính mình');
+  if(o.status !== 'open') return alert('Chỉ có thể huỷ lệnh đang mở');
+  o.status = 'cancelled'; o.cancelledAt = now();
+  save();
+}
+
+/* ---- Watchlist / Alerts ---- */
+function addWatch(){
+  const v = document.getElementById('addSymbol').value.trim().toUpperCase();
+  if(!v) return alert('Nhập mã');
+  if(state.watch.includes(v)) return alert('Đã tồn tại');
+  state.watch.unshift(v); document.getElementById('addSymbol').value=''; save(); fetch24hrTickers();
+}
+function removeWatch(i){ state.watch.splice(i,1); save(); }
+function addAlert(){ const s=document.getElementById('alertSym').value; const p=Number(document.getElementById('alertPrice').value); if(!s||!p) return alert('Chọn mã & giá'); state.alerts.push({symbol:s,price:p}); save(); }
+function removeAlert(i){ state.alerts.splice(i,1); save(); }
+function checkAlerts(){ state.alerts.slice().forEach((a,i)=>{ const last = state.lastPrices[a.symbol]; if(last && last >= a.price){ if(Notification.permission==='granted') new Notification(`Alert ${a.symbol}`,{body:`${a.symbol} >= ${a.price} (${fmtUSD(last)})`}); state.alerts.splice(i,1); save(); } }); }
+
+/* ---- Auth, KYC, Bank (client demo) ---- */
+function openAuth(){
+  showModal(`<h3>Đăng ký / Đăng nhập</h3>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <input id="authUser" class="input" placeholder="Tên đăng nhập" />
+      <input id="authPass" type="password" class="input" placeholder="Mật khẩu" />
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn gray" onclick="closeModal()">Hủy</button>
+        <button class="btn" onclick="doRegister()">Đăng ký</button>
+        <button class="btn" onclick="doLogin()">Đăng nhập</button>
+      </div>
+    </div>`);
+}
+async function doRegister(){
+  const u = document.getElementById('authUser').value.trim();
+  const p = document.getElementById('authPass').value;
+  if(!u || !p) return alert('Nhập đầy đủ');
+  if(state.users[u]) return alert('Tài khoản đã tồn tại');
+  const salt = randHex(16);
+  const hash = await pbkdf2(p, salt);
+  state.users[u] = { salt, hash, profile:{ kyc:false, bank:null }, balances:{ USD:10000, BTC:0, ETH:0 } };
+  state.current = u; save(); closeModal(); alert('Đăng ký thành công');
+}
+ async function doLogin(){
+  const u = document.getElementById('authUser').value.trim();
+  const p = document.getElementById('authPass').value;
+  const user = state.users[u];
+  if(!user) return alert('Tài khoản không tồn tại');
+  const hash = await pbkdf2(p, user.salt);
+  if(hash !== user.hash) return alert('Sai mật khẩu');
+  state.current = u; save(); closeModal(); alert('Đăng nhập thành công');
+}
+
+function openKyc(){
+  if(!state.current) return alert('Đăng nhập trước');
+  showModal(`<h3>KYC (demo)</h3>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <input id="kycName" class="input" placeholder="Họ tên" />
+      <input id="kycId" class="input" placeholder="Số CMND/CCCD" />
+      <input id="kycFile" type="file" accept="image/*" />
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button class="btn gray" onclick="closeModal()">Hủy</button>
+        <button class="btn" onclick="submitKyc()">Gửi</button>
+      </div>
+    </div>`);
+}
+function submitKyc(){
+  const name=document.getElementById('kycName').value.trim(); const id=document.getElementById('kycId').value.trim(); const f=document.getElementById('kycFile').files[0];
+  if(!name||!id||!f) return alert('Nhập đầy đủ');
+  const r=new FileReader(); r.onload=()=>{ state.users[state.current].profile.kyc=true; state.users[state.current].profile.kycFile=r.result; save(); closeModal(); alert('KYC lưu cục bộ (demo)'); }; r.readAsDataURL(f);
+}
+function bankLink(){
+  if(!state.current) return alert('Đăng nhập trước');
+  const code = String(Math.floor(1000 + Math.random()*9000));
+  state.users[state.current].profile.pendingBankCode = code; save();
+  showModal(`<h3>Liên kết Ngân hàng (demo)</h3>
+    <p class="small">Mã thử (demo): <strong>${code}</strong></p>
+    <input id="bankName" class="input" placeholder="Tên ngân hàng" />
+    <input id="bankAcc" class="input" placeholder="Số tài khoản" />
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px"><button class="btn gray" onclick="closeModal()">Hủy</button><button class="btn" onclick="submitBank()">Tiếp</button></div>`);
+}
+function submitBank(){ const b=document.getElementById('bankName').value.trim(); const acc=document.getElementById('bankAcc').value.trim(); if(!b||!acc) return alert('Nhập đầy đủ'); state.users[state.current].profile.bank = acc; save(); closeModal(); showModal(`<h3>Nhập mã thử</h3><input id="bankCode" class="input" placeholder="Nhập mã" /><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px"><button class="btn gray" onclick="closeModal()">Hủy</button><button class="btn" onclick="verifyBank()">Xác thực</button></div>`); }
+function verifyBank(){ const v=document.getElementById('bankCode').value.trim(); if(v === state.users[state.current].profile.pendingBankCode){ delete state.users[state.current].profile.pendingBankCode; save(); closeModal(); alert('Ngân hàng liên kết (demo)'); } else alert('Mã không đúng'); }
+
+/* ---- Modal helpers ---- */
+function showModal(html){ document.getElementById('modalBox').innerHTML = html; document.getElementById('modal').style.display = 'flex'; }
+function closeModal(){ document.getElementById('modal').style.display = 'none'; }
+
+/* ---- Contacts ---- */
+function sendContact(){
+  const name = document.getElementById('contactName').value.trim();
+  const email = document.getElementById('contactEmail').value.trim();
+  const msg = document.getElementById('contactMsg').value.trim();
+  if(!name||!email||!msg) return alert('Nhập đầy đủ');
+  state.contacts.push({ id: uid('c'), name, email, msg, time: now() }); save(); alert('Cảm ơn! Chúng tôi đã nhận phản hồi'); document.getElementById('contactName').value=''; document.getElementById('contactEmail').value=''; document.getElementById('contactMsg').value='';
+}
+function viewContacts(){
+  if(!state.contacts.length) return alert('Chưa có messages');
+  let html = '<h3>Messages</h3><div style="max-height:400px;overflow:auto">';
+  state.contacts.slice().reverse().forEach(m=> html += `<div style="padding:8px;border-bottom:1px solid rgba(0,0,0,.06)"><strong>${m.name}</strong> <span class="small">• ${m.time}</span><div class="small">${m.email}</div><p>${m.msg}</p></div>`);
+  html += '</div><div style="text-align:right;margin-top:8px"><button class="btn" onclick="closeModal()">Đóng</button></div>';
+  showModal(html);
+}
+
+/* ---- Admin panel ---- */
+function openAdmin(){
+  showModal(`<h3>Admin login</h3>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <input id="adminPass" class="input" placeholder="Mật khẩu admin" />
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button class="btn gray" onclick="closeModal()">Hủy</button>
+        <button class="btn" onclick="doAdminLogin()">Login</button>
+      </div>
+    </div>`);
+}
+function doAdminLogin(){
+  const pass = document.getElementById('adminPass').value;
+  if(pass === '261209'){
+    closeModal();
+    openAdminPanel();
+  } else alert('Sai mật khẩu admin');
+}
+function openAdminPanel(){
+  let html = `<h3>Admin Panel</h3>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <input id="adminTitle" class="input" placeholder="Tiêu đề bài đăng" />
+      <input id="adminSource" class="input" placeholder="Nguồn" style="width:120px" />
+      <button class="btn" onclick="adminAddPost()">Thêm</button>
+    </div>
+    <div id="adminPosts" style="max-height:320px;overflow:auto"></div>
+    <div style="text-align:right;margin-top:8px"><button class="btn" onclick="closeModal()">Đóng</button></div>`;
+  showModal(html);
+  renderAdminPosts();
+}
+function adminAddPost(){
+  const t = document.getElementById('adminTitle').value.trim();
+  const s = document.getElementById('adminSource').value.trim() || 'Onus';
+  if(!t) return alert('Nhập tiêu đề');
+  state.adminPosts.unshift({ id: uid('p'), title: t, source: s, publishedAt: new Date().toISOString(), url: '#', body: '', admin:true });
+  document.getElementById('adminTitle').value=''; document.getElementById('adminSource').value='';
+  save(); renderAdminPosts();
+}
+function adminDeletePost(id){ state.adminPosts = state.adminPosts.filter(p=>p.id!==id); save(); renderAdminPosts(); }
+function renderAdminPosts(){
+  const el = document.getElementById('adminPosts'); if(!el) return;
+  el.innerHTML = state.adminPosts.map(p=>`<div style="padding:8px;border-bottom:1px solid rgba(0,0,0,.06)"><strong>${p.title}</strong><div class="small">${p.source} • ${new Date(p.publishedAt).toLocaleString()}</div><div style="margin-top:6px"><button class="btn gray" onclick="adminDeletePost('${p.id}')">Xóa</button></div></div>`).join('');
+}
+
+/* ---- News: NewsAPI primary, CoinGecko fallback ---- */
+let newsLang = 'en'; // can toggle en/vi
+async function fetchNews(){
+  const container = document.getElementById('newsList');
+  const status = document.getElementById('newsStatus');
+  container.innerHTML = '';
+  status.textContent = 'Đang tải...';
+  const search = document.getElementById('newsSearch').value.trim();
+  const q = search ? encodeURIComponent(search) : encodeURIComponent('cryptocurrency OR bitcoin OR ethereum OR finance OR Onus');
+  try{
+    const url = `https://newsapi.org/v2/everything?q=${q}&language=${newsLang}&pageSize=8&sortBy=publishedAt&apiKey=${NEWS_API_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data && data.articles && data.articles.length){
+      status.textContent = `Cập nhật: ${new Date().toLocaleTimeString()} (NewsAPI)`;
+      renderNewsItems(data.articles.map(a=>({ title:a.title, url:a.url, publishedAt:a.publishedAt, source:a.source.name })));
+      return;
+    }
+  }catch(e){ console.warn('NewsAPI failed', e); }
+  // fallback CoinGecko
+  try{
+    const cg = await fetch('https://api.coingecko.com/api/v3/news');
+    const cgData = await cg.json();
+    if(Array.isArray(cgData) && cgData.length){
+      status.textContent = `Cập nhật: ${new Date().toLocaleTimeString()} (CoinGecko)`;
+      renderNewsItems(cgData.slice(0,8).map(item=>{
+        const title = item.title || item.message || (item.data && item.data.title) || 'Tin';
+        const url = item.url || (item.link && item.link.url) || '#';
+        const publishedAt = item.date ? new Date(item.date*1000).toISOString() : new Date().toISOString();
+        const source = item.source_name || (item.source && item.source.name) || 'CoinGecko';
+        return { title, url, publishedAt, source };
+      }));
+      return;
+    }
+  }catch(e2){ console.warn('CoinGecko fallback failed', e2); }
+  status.textContent = 'Không thể tải tin tức';
+  container.innerHTML = '<div class="small">Không thể tải tin tức (NewsAPI & CoinGecko đều thất bại).</div>';
+}
+function renderNewsItems(items){
+  const container = document.getElementById('newsList');
+  // combine admin posts at top
+  const adminPosts = state.adminPosts.map(p=>({ title:p.title, url:p.url, publishedAt:p.publishedAt, source:p.source }));
+  const combined = [...adminPosts, ...items];
+  container.innerHTML = combined.map(it=>{
+    return `<div style="padding:10px;border-bottom:1px solid rgba(0,0,0,.04)"><a href="${it.url}" target="_blank">${it.title}</a><div class="small">${new Date(it.publishedAt).toLocaleString()} • ${it.source}</div></div>`;
+  }).join('');
+}
+
+/* ---- News search / language toggle ---- */
+document.getElementById('newsSearch').addEventListener('keyup', debounce(()=> fetchNews(), 600));
+function toggleLanguage(){ newsLang = newsLang === 'en' ? 'vi' : 'en'; document.getElementById('newsLangChip').innerText = newsLang.toUpperCase(); fetchNews(); }
+function debounce(fn, wait){ let t; return function(...a){ clearTimeout(t); t=setTimeout(()=>fn.apply(this,a), wait); } }
+
+/* ---- Export CSV ---- */
+function exportCSV(){
+  if(!state.orders.length) return alert('Không có lệnh');
+  const rows = [['time','type','symbol','qty','price','owner','status'], ...state.orders.map(o=>[o.time,o.side||o.type,o.symbol,o.qty,o.price,o.owner,o.status])];
+  const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'orders.csv'; a.click(); URL.revokeObjectURL(url);
+}
+
+/* ---- Rendering UI ---- */
+function renderAll(){
+  renderTickers(); renderWallet(); renderWatch(); renderOrders(); renderProfile(); renderTopCoins(); renderSymbolSelect(); renderAlerts(); renderAdminSummary();
+}
+function renderTickers(){
+  const el = document.getElementById('tickerMini'); el.innerHTML = '';
+  const keys = Object.keys(state.tickers).slice(0,4);
+  if(!keys.length) el.innerText = '--';
+  keys.forEach(k=>{
+    const t = state.tickers[k];
+    const span = document.createElement('span'); span.style.marginLeft='8px'; span.innerHTML = `<strong>${k}</strong>: ${t?fmtUSD(t.price):'--'}`;
+    el.appendChild(span);
+  });
+}
+function renderWallet(){
+  const u = state.users[state.current];
+  document.getElementById('balUSD').textContent = u ? fmtUSD(u.balances.USD) : fmtUSD(10000);
+  document.getElementById('balBTC').textContent = u ? (u.balances.BTC||0).toFixed(6) : '0.000000';
+  document.getElementById('balETH').textContent = u ? (u.balances.ETH||0).toFixed(6) : '0.000000';
+  document.getElementById('portfolioVal').textContent = fmtUSD(calcPortfolio());
+}
+function renderWatch(){
+  const ul = document.getElementById('watchlist'); ul.innerHTML = '';
+  if(state.watch.length===0) { ul.innerHTML = '<div class="small">Watchlist trống</div>'; return; }
+  state.watch.forEach((s,i)=>{
+    const li = document.createElement('li');
+    const p = state.tickers[s] ? fmtUSD(state.tickers[s].price) : '--';
+    li.innerHTML = `<div>${s} — ${p}</div><div><button class="btn gray" onclick="removeWatch(${i})">X</button> <button class="btn" onclick="setSymbol('${s}')">Chart</button></div>`;
+    ul.appendChild(li);
+  });
+}
+function renderOrders(){
+  const tbody = document.querySelector('#ordersTable tbody'); tbody.innerHTML = '';
+  state.orders.slice().reverse().forEach(o=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${o.time}</td><td>${o.side||o.type}</td><td>${o.symbol}</td><td>${o.qty}</td><td>${fmtUSD(o.price)}</td><td>${o.status}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+function renderProfile(){
+  const area = document.getElementById('profileArea'); const u = state.users[state.current];
+  if(!u){ area.innerHTML = 'Chưa đăng nhập. <br/><button class="btn" onclick="openAuth()">Đăng nhập / Đăng ký</button>'; return; }
+  area.innerHTML = `<div style="font-weight:700">${state.current}</div>
+    <div class="small">KYC: ${u.profile.kyc ? '<span style="color:green">Đã</span>' : '<span style="color:#b45309">Chưa</span>'}</div>
+    <div class="small">Ngân hàng: ${u.profile.bank ? '****' + u.profile.bank.slice(-4) : '<em>Chưa</em>'}</div>`;
+}
+function renderTopCoins(){
+  const wrap = document.getElementById('topCoins'); wrap.innerHTML = '';
+  TOP_COINS.forEach(s=>{
+    const b = document.createElement('button'); b.className='btn gray'; b.style.marginBottom='6px'; b.innerText=s;
+    b.onclick = ()=>{ if(!state.watch.includes(s)) state.watch.unshift(s); save(); setSymbol(s); };
+    wrap.appendChild(b);
+  });
+}
+function renderSymbolSelect(){
+  const sel = document.getElementById('symbolSelect'); sel.innerHTML = '';
+  const all = Array.from(new Set([...TOP_COINS, ...state.watch]));
+  all.forEach(s=>{ const o = document.createElement('option'); o.value = s; o.innerText = s; sel.appendChild(o); });
+  if(!sel.value) sel.value = state.watch[0] || TOP_COINS[0];
+  document.getElementById('alertSym').innerHTML = sel.innerHTML;
+}
+function renderAlerts(){
+  const el = document.getElementById('alertsArea'); if(state.alerts.length===0){ el.innerText='Không có cảnh báo'; return; }
+  el.innerHTML = state.alerts.map((a,i)=>`<div>[${a.symbol}] >= ${fmtUSD(a.price)} <button class="btn gray" onclick="removeAlert(${i})">X</button></div>`).join('');
+}
+function renderAdminSummary(){
+  // minimal admin summary render
+  // called within renderAll to keep adminPosts up to date in news
+}
+
+/* ---- Portfolio calc ---- */
+function calcPortfolio(){
+  const u = state.users[state.current];
+  let usd = u ? u.balances.USD : 10000;
+  const btc = u ? u.balances.BTC||0 : 0;
+  const eth = u ? u.balances.ETH||0 : 0;
+  const pBTC = state.tickers.BTC ? state.tickers.BTC.price : 0;
+  const pETH = state.tickers.ETH ? state.tickers.ETH.price : 0;
+  return usd + btc * pBTC + eth * pETH;
+}
+
+/* ---- News initial load and periodic ---- */
+async function initNewsAndTickers(){
+  await fetch24hrTickers();
+  await fetchNews();
+}
+fetchNews(); // call immediately
+setInterval(fetchNews, 10*60*1000); // every 10 minutes
+
+/* ---- Periodic main loop ---- */
+async function periodic(){
+  await fetch24hrTickers();
+  processOpenOrders();
+  checkAlerts();
+  document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString();
+  renderAll();
+}
+setInterval(periodic, 10000);
+
+/* ---- Misc UI functions ---- */
+function refreshSymbol(){ fetch24hrTickers().then(()=> setSymbol(document.getElementById('symbolSelect').value)); }
+
+/* ---- Theme toggle ---- */
+function toggleTheme(){
+  const el = document.body;
+  if(el.getAttribute('data-theme') === 'dark'){ el.setAttribute('data-theme','light'); localStorage.setItem('onus_theme','light'); document.querySelector('.header .btn.gray').innerText='🌙'; }
+  else { el.setAttribute('data-theme','dark'); localStorage.setItem('onus_theme','dark'); document.querySelector('.header .btn.gray').innerText='☀️'; }
+}
+(function applySavedTheme(){ const t = localStorage.getItem('onus_theme'); if(t==='dark') document.body.setAttribute('data-theme','dark'); })();
+
+/* ---- Contacts viewing and admin posts are hooked to save/render ---- */
+
+/* ---- Initialization ---- */
+(async function init(){
+  renderSymbolSelect(); await initNewsAndTickers(); renderAll();
+  const initial = document.getElementById('symbolSelect').value || 'BTC';
+  await setSymbol(initial);
+  periodic();
+})();
+
+/* ---- Notifications request ---- */
+function requestNotif(){ if(!('Notification' in window)) return alert('Trình duyệt không hỗ trợ Notification API'); Notification.requestPermission().then(p=>alert('Quyền: '+p)); }
+window.requestNotif = requestNotif;
+
+/* ---- Expose functions for buttons used inline ---- */
+window.setSymbol = setSymbol; window.placeOrder = placeOrder; window.addWatch = addWatch; window.removeWatch = removeWatch;
+window.openAuth = openAuth; window.openKyc = openKyc; window.bankLink = bankLink; window.exportCSV = exportCSV;
+window.addAlert = addAlert; window.removeAlert = removeAlert; window.cancelOrder = cancelOrder; window.refreshSymbol = refreshSymbol;
+window.toggleTheme = toggleTheme; window.fetchNews = fetchNews; window.toggleLanguage = function(){ newsLang = newsLang==='en'?'vi':'en'; document.getElementById('newsLangChip').innerText=newsLang.toUpperCase(); fetchNews(); };
+
+/* ----- Admin News, Contacts rendering already in fetchNews/renderNewsItems ----- */
+
+/* ---- Fallbacks & small helpers used earlier (for news debounce etc) ---- */
+function debounce(fn, wait){ let t; return function(...a){ clearTimeout(t); t=setTimeout(()=>fn.apply(this,a), wait); } }
+document.getElementById('newsSearch').addEventListener('input', debounce(()=> fetchNews(), 700));
+
+/* -------------- News function repeated here (full) -------------- */
+async function fetchNews(){
+  const container = document.getElementById('newsList');
+  const status = document.getElementById('newsStatus');
+  container.innerHTML = ''; status.innerText = 'Đang tải...';
+  const search = document.getElementById('newsSearch').value.trim();
+  const q = search ? encodeURIComponent(search) : encodeURIComponent('cryptocurrency OR bitcoin OR ethereum OR finance OR Onus');
+  // Try NewsAPI first
+  try{
+    const url = `https://newsapi.org/v2/everything?q=${q}&language=${newsLang}&pageSize=10&sortBy=publishedAt&apiKey=${NEWS_API_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data && data.articles && data.articles.length){
+      status.textContent = `Cập nhật: ${new Date().toLocaleTimeString()} (NewsAPI)`;
+      const items = data.articles.map(a=>({ title:a.title, url:a.url, publishedAt:a.publishedAt, source:a.source.name }));
+      renderNewsItems(items);
+      return;
+    }
+  }catch(e){ console.warn('NewsAPI error', e); }
+  // Fallback to CoinGecko
+  try{
+    const cg = await fetch('https://api.coingecko.com/api/v3/news'); const cgData = await cg.json();
+    if(Array.isArray(cgData) && cgData.length){
+      status.textContent = `Cập nhật: ${new Date().toLocaleTimeString()} (CoinGecko)`;
+      const items = cgData.slice(0,10).map(item=>{
+        const title = item.title || item.message || (item.data && item.data.title) || 'Tin';
+        const url = item.url || (item.link && item.link.url) || '#';
+        const publishedAt = item.date ? new Date(item.date*1000).toISOString() : new Date().toISOString();
+        const source = item.source_name || (item.source && item.source.name) || 'CoinGecko';
+        return { title, url, publishedAt, source };
+      });
+      renderNewsItems(items);
+      return;
+    }
+  }catch(e2){ console.warn('CoinGecko fallback error', e2); }
+  status.textContent = 'Không thể tải tin';
+  container.innerHTML = '<div class="small">Không thể tải tin tức.</div>';
+}
+
+/* ----------------- END ----------------- */
+</script>
+</body>
+</html>
+
